@@ -1,0 +1,4 @@
+config-version: 1
+
+# Message language: ru or en. Texts are in plugins/KineticMenus/lang/ and can be edited freely.
+language: en

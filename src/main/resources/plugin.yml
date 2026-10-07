@@ -1,0 +1,31 @@
+name: KineticMenus
+version: '${version}'
+main: com.mdevstudio.kineticmenus.KineticMenus
+api-version: '${apiVersion}'
+author: M/Dev Studio
+description: Animated chest menus with ready-made opening and click effects
+softdepend: [PlaceholderAPI]
+
+permissions:
+  kineticmenus.admin:
+    description: All admin commands
+    default: op
+    children:
+      kineticmenus.command.open.others: true
+      kineticmenus.command.list: true
+      kineticmenus.command.reload: true
+  kineticmenus.command.open:
+    description: Open menus for yourself with /kmenu open
+    default: true
+  kineticmenus.command.open.others:
+    description: Open menus for other players
+    default: op
+  kineticmenus.command.animations:
+    description: Turn menu animations on or off for yourself
+    default: true
+  kineticmenus.command.list:
+    description: List loaded menus
+    default: op
+  kineticmenus.command.reload:
+    description: Reload settings, messages and menus
+    default: op

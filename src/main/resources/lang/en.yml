@@ -1,0 +1,8 @@
+prefix: "<gradient:#7FB3FF:#C38BFF>KineticMenus</gradient> <dark_gray>»</dark_gray>"
+
+reloaded: "<prefix> <#8BD17C>Reloaded, <white><count></white> menus loaded.</#8BD17C>"
+players-only: "<prefix> <#FF6B6B>Only players can do this.</#FF6B6B>"
+menu-not-found: "<prefix> <#FF6B6B>There is no menu called <white><menu></white>. See <white>/kmenu list</white>.</#FF6B6B>"
+list: "<prefix> <gray>Menus (<white><count></white>): <white><menus></white></gray>"
+animations-on: "<prefix> <#8BD17C>Menu animations are on.</#8BD17C>"
+animations-off: "<prefix> <gray>Menu animations are off, menus will open instantly.</gray>"

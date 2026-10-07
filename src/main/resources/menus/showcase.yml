@@ -1,0 +1,122 @@
+# Showcase of every effect. Open it with /kmenu open showcase.
+# Each menu file in this folder is one menu; the file name is its id.
+
+title: "<gradient:#7FB3FF:#C38BFF>KineticMenus</gradient> <dark_gray>showcase"
+rows: 5
+
+# How the menu appears: none, cascade, wave, spiral, typewriter, scatter, shuffle.
+open:
+  effect: scatter
+  ticks: 14
+  sound: block.amethyst_block.chime
+
+# Ticks between redraws of animated gradients ({phase}) and placeholders.
+refresh: 2
+
+# Slots without a button.
+filler:
+  material: black_stained_glass_pane
+  hide-tooltip: true
+
+# What a ripple paints over empty slots.
+ripple:
+  material: light_blue_stained_glass_pane
+  hide-tooltip: true
+
+buttons:
+  logo:
+    slot: 4
+    material: nether_star
+    name: "<gradient:#5EE7DF:#B490CA:#5EE7DF:{phase}><bold>KineticMenus"
+    lore:
+      - "<gray>Top row: opening effects."
+      - "<gray>Bottom row: click effects."
+    effect: flash
+
+  cascade:
+    slot: 10
+    material: water_bucket
+    name: "<#7FB3FF>Cascade"
+    lore: ["<gray>Row by row, top to bottom."]
+    on-click: ["open: showcase cascade"]
+  wave:
+    slot: 11
+    material: heart_of_the_sea
+    name: "<#7FB3FF>Wave"
+    lore: ["<gray>Rings from the middle."]
+    on-click: ["open: showcase wave"]
+  spiral:
+    slot: 12
+    material: nautilus_shell
+    name: "<#7FB3FF>Spiral"
+    lore: ["<gray>Along the border, inwards."]
+    on-click: ["open: showcase spiral"]
+  typewriter:
+    slot: 13
+    material: writable_book
+    name: "<#7FB3FF>Typewriter"
+    lore: ["<gray>Slot after slot."]
+    on-click: ["open: showcase typewriter"]
+  scatter:
+    slot: 14
+    material: firework_rocket
+    name: "<#7FB3FF>Scatter"
+    lore: ["<gray>Items fly in from random slots."]
+    on-click: ["open: showcase scatter"]
+  shuffle:
+    slot: 15
+    material: music_disc_otherside
+    name: "<#7FB3FF>Shuffle"
+    lore: ["<gray>Slots flicker, then settle."]
+    on-click: ["open: showcase shuffle"]
+  instant:
+    slot: 16
+    material: clock
+    name: "<#7FB3FF>No animation"
+    lore: ["<gray>What players with animations off see."]
+    on-click: ["open: showcase none"]
+
+  press:
+    slot: 28
+    material: stone_button
+    name: "<#8BD17C>Press"
+    lore: ["<gray>The button sinks in."]
+    effect: press
+    on-click: ["sound: ui.button.click 0.6 1.2"]
+  flash:
+    slot: 29
+    material: glowstone_dust
+    name: "<#8BD17C>Flash"
+    lore: ["<gray>Two blinks of glint."]
+    effect: flash
+    on-click: ["sound: block.amethyst_block.hit 0.8 1.4"]
+  ripple:
+    slot: 31
+    material: prismarine_crystals
+    name: "<#8BD17C>Ripple"
+    lore: ["<gray>A ring spreads over the empty slots."]
+    effect: ripple
+    on-click: ["sound: block.bubble_column.upwards_inside 0.8 1.2"]
+  shake:
+    slot: 33
+    material: tnt
+    name: "<#F2C14E>Shake"
+    lore: ["<gray>Needs a permission nobody has,", "<gray>so the button refuses."]
+    permission: kineticmenus.showcase.never
+    deny-effect: shake
+    on-deny:
+      - "sound: entity.villager.no 0.8 1"
+      - "message: <#F2C14E>That button shakes its head at you."
+  gradient:
+    slot: 34
+    material: amethyst_shard
+    name: "<gradient:#FF6B6B:#F2C14E:#8BD17C:#7FB3FF:#C38BFF:#FF6B6B:{phase}>Live gradient"
+    lore: ["<gray>Colours keep moving while the menu is open."]
+    effect: ripple
+
+  close:
+    slot: 40
+    material: barrier
+    name: "<#FF6B6B>Close"
+    effect: press
+    on-click: ["close"]

@@ -1,0 +1,8 @@
+prefix: "<gradient:#7FB3FF:#C38BFF>KineticMenus</gradient> <dark_gray>»</dark_gray>"
+
+reloaded: "<prefix> <#8BD17C>Перезагружено, меню загружено: <white><count></white>.</#8BD17C>"
+players-only: "<prefix> <#FF6B6B>Это может сделать только игрок.</#FF6B6B>"
+menu-not-found: "<prefix> <#FF6B6B>Меню <white><menu></white> не найдено. Список — <white>/kmenu list</white>.</#FF6B6B>"
+list: "<prefix> <gray>Меню (<white><count></white>): <white><menus></white></gray>"
+animations-on: "<prefix> <#8BD17C>Анимации меню включены.</#8BD17C>"
+animations-off: "<prefix> <gray>Анимации меню выключены, меню будут открываться сразу.</gray>"
