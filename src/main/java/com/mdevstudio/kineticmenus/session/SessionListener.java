@@ -35,6 +35,7 @@ public final class SessionListener implements Listener {
         }
     }
 
+    // Also fires when the player leaves the server with a menu open.
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
         if (event.getView().getTopInventory().getHolder(false) instanceof MenuSession session) {

@@ -4,7 +4,8 @@ main: com.mdevstudio.kineticmenus.KineticMenus
 api-version: '${apiVersion}'
 author: M/Dev Studio
 description: Animated chest menus with ready-made opening and click effects
-softdepend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI, Vault, floodgate]
+folia-supported: true
 
 permissions:
   kineticmenus.admin:
@@ -14,6 +15,7 @@ permissions:
       kineticmenus.command.open.others: true
       kineticmenus.command.list: true
       kineticmenus.command.reload: true
+      kineticmenus.command.import: true
   kineticmenus.command.open:
     description: Open menus for yourself with /kmenu open
     default: true
@@ -23,9 +25,15 @@ permissions:
   kineticmenus.command.animations:
     description: Turn menu animations on or off for yourself
     default: true
+  kineticmenus.command.sounds:
+    description: Turn menu sounds on or off for yourself
+    default: true
   kineticmenus.command.list:
     description: List loaded menus
     default: op
   kineticmenus.command.reload:
     description: Reload settings, messages and menus
+    default: op
+  kineticmenus.command.import:
+    description: Import menus from DeluxeMenus
     default: op

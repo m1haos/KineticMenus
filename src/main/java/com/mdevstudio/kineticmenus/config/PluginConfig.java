@@ -3,10 +3,12 @@ package com.mdevstudio.kineticmenus.config;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public record PluginConfig(String language) {
+public record PluginConfig(String language, boolean autoReload, boolean sounds, float soundVolume,
+                           boolean bedrockReducedMotion) {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final String DEFAULT_LANGUAGE = "ru";
+    private static final float MAX_VOLUME = 2;
 
     public static PluginConfig load(JavaPlugin plugin) {
         plugin.saveDefaultConfig();
@@ -26,6 +28,19 @@ public record PluginConfig(String language) {
                     language, Messages.LANGUAGES, DEFAULT_LANGUAGE);
             language = DEFAULT_LANGUAGE;
         }
-        return new PluginConfig(language);
+
+        double volume = yaml.getDouble("sounds.volume", 1);
+        if (volume < 0 || volume > MAX_VOLUME) {
+            plugin.getSLF4JLogger().warn("config.yml: sounds.volume should be from 0 to {}, got {}. Using 1.",
+                    MAX_VOLUME, volume);
+            volume = 1;
+        }
+
+        return new PluginConfig(
+                language,
+                yaml.getBoolean("auto-reload", true),
+                yaml.getBoolean("sounds.enabled", true),
+                (float) volume,
+                yaml.getBoolean("bedrock-reduced-motion", true));
     }
 }

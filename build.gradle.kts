@@ -10,11 +10,21 @@ repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://repo.helpch.at/releases/")
+    maven("https://jitpack.io") {
+        content { includeGroup("com.github.MilkBowl") }
+    }
+    maven("https://repo.opencollab.dev/main/") {
+        content { includeGroupByRegex("org\\.geysermc.*") }
+    }
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:$paperVersion.build.+")
     compileOnly("me.clip:placeholderapi:2.12.3")
+    compileOnly("com.github.MilkBowl:VaultAPI:1.7.1") {
+        isTransitive = false
+    }
+    compileOnly("org.geysermc.floodgate:api:2.2.4-SNAPSHOT")
 
     testImplementation("io.papermc.paper:paper-api:$paperVersion.build.+")
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.2:4.116.1")

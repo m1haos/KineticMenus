@@ -28,4 +28,13 @@ public sealed interface Action {
 
     record Refresh() implements Action {
     }
+
+    /**
+     * Checked before any action of the click runs: if the player cannot pay, nothing happens.
+     */
+    record TakeMoney(double amount) implements Action {
+    }
+
+    record GiveMoney(double amount) implements Action {
+    }
 }

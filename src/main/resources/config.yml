@@ -1,4 +1,18 @@
-config-version: 1
+config-version: 2
 
 # Message language: ru or en. Texts are in plugins/KineticMenus/lang/ and can be edited freely.
 language: en
+
+# Apply changes to files in plugins/KineticMenus/menus as soon as they are saved.
+# Open menus are redrawn in place, so you can edit a menu and watch it change in game.
+auto-reload: true
+
+sounds:
+  # Every effect comes with its own sounds. Players can turn them off for themselves with /kmenu sounds off.
+  enabled: true
+  # Multiplier for all menu sounds, from 0 to 2.
+  volume: 1.0
+
+# Bedrock players (Geyser with Floodgate) get menus without animations: their client redraws
+# chest menus slowly and fast animations turn into flicker there. Sounds stay.
+bedrock-reduced-motion: true

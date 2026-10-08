@@ -1,12 +1,17 @@
 package com.mdevstudio.kineticmenus.session;
 
+import com.mdevstudio.kineticmenus.animation.AmbientEffect;
+import com.mdevstudio.kineticmenus.animation.Animation;
 import com.mdevstudio.kineticmenus.animation.ClickEffect;
 import com.mdevstudio.kineticmenus.animation.ClickEffect.Look;
-import com.mdevstudio.kineticmenus.animation.OpenEffect;
+import com.mdevstudio.kineticmenus.animation.Scene;
+import com.mdevstudio.kineticmenus.animation.SoundCue;
+import com.mdevstudio.kineticmenus.config.Messages;
 import com.mdevstudio.kineticmenus.menu.Button;
 import com.mdevstudio.kineticmenus.menu.Button.ClickKind;
+import com.mdevstudio.kineticmenus.menu.Button.Reaction;
+import com.mdevstudio.kineticmenus.menu.Icon;
 import com.mdevstudio.kineticmenus.menu.Menu;
-import com.mdevstudio.kineticmenus.render.IconRenderer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,54 +28,64 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * One open menu for one player. Everything visible is recomposed every tick from the base layout, the
- * opening animation and running click effects; only slots whose item actually changed are sent to the client.
- * Effects move to their next frame only on ticks, so a click shows the first frame at once and the effect keeps
- * the same pace however fast the player clicks.
+ * One open menu for one player. Everything visible is recomposed every tick from the base layout, the opening
+ * animation, the background effect and running click effects; only slots whose item actually changed are sent to
+ * the client. Effects move to their next frame only on ticks, so a click shows the first frame at once and the
+ * effect keeps the same pace however fast the player clicks.
  */
 public final class MenuSession implements InventoryHolder {
 
     private static final int CLICK_COOLDOWN_TICKS = 3;
     private static final double PHASE_PER_TICK = 0.05;
 
+    private final Sessions sessions;
     private final Menu menu;
     private final Player viewer;
-    private final IconRenderer renderer;
-    private final ActionRunner actions;
+    private final Presentation presentation;
     private final Inventory inventory;
     private final ItemStack[] shown;
     private final Map<Integer, ItemStack> base = new HashMap<>();
+    private final Map<Integer, Button> visible = new HashMap<>();
     private final Set<Integer> freeSlots = new HashSet<>();
+    private final Map<Icon, ItemStack> still = new HashMap<>();
     private final List<RunningEffect> effects = new ArrayList<>();
+    private final List<PendingSound> sounds = new ArrayList<>();
     private final boolean live;
 
     private ItemStack filler;
+    private ItemStack accent;
+    private ItemStack trail;
     private List<Map<Integer, ItemStack>> opening;
     private int openingFrame;
     private long age;
     private long nextClick;
+    private boolean stale;
+    private boolean stopped;
 
-    MenuSession(Menu menu, Player viewer, IconRenderer renderer, ActionRunner actions, OpenEffect effect) {
+    MenuSession(Sessions sessions, Menu menu, Player viewer, Presentation presentation) {
+        this.sessions = sessions;
         this.menu = menu;
         this.viewer = viewer;
-        this.renderer = renderer;
-        this.actions = actions;
-        this.inventory = Bukkit.createInventory(this, menu.grid().size(), renderer.text(menu.title(), viewer, 0));
+        this.presentation = presentation;
+        this.inventory = Bukkit.createInventory(this, menu.grid().size(),
+                sessions.renderer().text(menu.title(), viewer, 0));
         this.shown = new ItemStack[menu.grid().size()];
-        this.live = menu.buttons().stream().anyMatch(button -> button.icon().live())
+        this.live = menu.buttons().stream().anyMatch(button -> button.icon().live() || !button.showIf().isEmpty())
                 || menu.filler() != null && menu.filler().live();
 
-        for (int slot = 0; slot < menu.grid().size(); slot++) {
-            if (menu.buttonAt(slot) == null) {
-                freeSlots.add(slot);
-            }
-        }
         renderBase();
-        List<Map<Integer, ItemStack>> frames = effect.frames(base, menu.grid(), menu.openTicks(),
-                ThreadLocalRandom.current());
-        opening = frames.size() > 1 ? frames : null;
-        draw(opening != null ? opening.getFirst() : base);
+        Map<Integer, ItemStack> items = new HashMap<>();
+        Map<Integer, ItemStack> background = new HashMap<>();
+        base.forEach((slot, item) -> (visible.containsKey(slot) ? items : background).put(slot, item));
+        Animation<ItemStack> animation = presentation.effect().animate(
+                new Scene<>(menu.grid(), items, background, presentation.previous(), accent, trail),
+                menu.opening().ticks(), menu.opening().easing(), ThreadLocalRandom.current());
+
+        opening = animation.frames().size() > 1 ? animation.frames() : null;
+        draw(animation.frames().getFirst());
         openingFrame = 1;
+        List<SoundCue> openSound = menu.opening().sound();
+        schedule(openSound != null ? openSound : animation.sounds(), true);
     }
 
     @Override
@@ -86,11 +101,37 @@ public final class MenuSession implements InventoryHolder {
         return viewer;
     }
 
+    /**
+     * What the viewer sees right now.
+     */
+    public Map<Integer, ItemStack> view() {
+        Map<Integer, ItemStack> view = new HashMap<>();
+        for (int slot = 0; slot < shown.length; slot++) {
+            if (shown[slot] != null) {
+                view.put(slot, shown[slot]);
+            }
+        }
+        return view;
+    }
+
     void start() {
         viewer.openInventory(inventory);
-        if (menu.openSound() != null) {
-            viewer.playSound(Sound.sound(menu.openSound(), Sound.Source.MASTER, 0.6f, 1f));
-        }
+        scheduleTick();
+    }
+
+    void stop() {
+        stopped = true;
+    }
+
+    // Every tick books the next one, so a closed menu simply stops without a task to cancel. The viewer's own
+    // scheduler runs it on the viewer's thread, which is what Folia needs.
+    private void scheduleTick() {
+        viewer.getScheduler().run(sessions.plugin(), task -> {
+            if (!stopped) {
+                scheduleTick();
+                tick();
+            }
+        }, null);
     }
 
     void tick() {
@@ -98,21 +139,25 @@ public final class MenuSession implements InventoryHolder {
         if (opening != null) {
             if (openingFrame < opening.size()) {
                 draw(opening.get(openingFrame++));
+                playDue();
                 return;
             }
             opening = null;
         }
-        if (live && age % menu.refreshTicks() == 0) {
+        if (stale || live && age % menu.refreshTicks() == 0) {
             renderBase();
+            stale = false;
         }
         effects.removeIf(effect -> ++effect.frame >= effect.frames.size());
         draw(compose());
+        playDue();
     }
 
     void click(int slot, ClickType type) {
         if (opening != null) {
             // An impatient click skips the rest of the opening instead of hitting a button that is still moving.
             opening = null;
+            sounds.removeIf(PendingSound::opening);
             draw(compose());
             return;
         }
@@ -121,17 +166,19 @@ public final class MenuSession implements InventoryHolder {
         }
         nextClick = age + CLICK_COOLDOWN_TICKS;
 
-        Button button = menu.buttonAt(slot);
+        Button button = visible.get(slot);
         if (button == null) {
             return;
         }
-        if (button.permission() != null && !viewer.hasPermission(button.permission())) {
-            play(button.denyEffect(), button, slot);
-            actions.run(button.denyActions(), this);
-            return;
+        if (!sessions.requirements().test(button.clickIf(), viewer)) {
+            deny(button, slot, null);
+        } else if (sessions.actions().run(button.actionsFor(kind(type)), viewer, this)) {
+            react(button.effect(), button.sound(), button, slot);
+        } else {
+            deny(button, slot, Messages.NOT_ENOUGH_MONEY);
         }
-        play(button.effect(), button, slot);
-        actions.run(button.actionsFor(kind(type)), this);
+        // Whatever the click did may change which buttons are shown, so conditions are checked again next tick.
+        stale = true;
     }
 
     void refresh() {
@@ -139,41 +186,90 @@ public final class MenuSession implements InventoryHolder {
         draw(compose());
     }
 
-    private void play(ClickEffect effect, Button button, int slot) {
-        List<Map<Integer, Look>> frames = effect.frames(menu.grid(), slot, freeSlots);
-        if (frames.isEmpty()) {
+    // fallback is sent when the button has no deny actions of its own; null sends nothing.
+    private void deny(Button button, int slot, String fallback) {
+        Reaction deny = button.deny();
+        react(deny.effect(), deny.sound(), button, slot);
+        if (!deny.actions().isEmpty()) {
+            sessions.actions().run(deny.actions(), viewer, this);
+        } else if (fallback != null) {
+            sessions.messages().send(viewer, fallback);
+        }
+    }
+
+    private void react(ClickEffect effect, List<SoundCue> sound, Button button, int slot) {
+        Animation<Look> animation = effect.animate(menu.grid(), slot, freeSlots, ThreadLocalRandom.current());
+        schedule(sound != null ? sound : animation.sounds(), false);
+        if (!presentation.motion() || animation.frames().isEmpty()) {
             return;
         }
         effects.removeIf(running -> running.slot == slot);
-        ItemStack normal = base.get(slot);
-        effects.add(new RunningEffect(slot, frames, Map.of(
-                Look.BUTTON, normal,
-                Look.PRESSED, renderer.render(button.pressed(), viewer, phase()),
-                Look.GLINT, renderer.render(button.icon().withGlint(), viewer, phase()),
-                Look.RIPPLE, renderer.render(menu.ripple(), viewer, phase()))));
+        Map<Look, ItemStack> looks = new HashMap<>();
+        looks.put(Look.BUTTON, base.get(slot));
+        looks.put(Look.PRESSED, item(button.pressed()));
+        looks.put(Look.GLINT, item(button.icon().withGlint()));
+        effects.add(new RunningEffect(slot, animation.frames(), looks));
         draw(compose());
     }
 
     private Map<Integer, ItemStack> compose() {
         Map<Integer, ItemStack> view = new HashMap<>(base);
+        Menu.Ambient ambient = menu.ambient();
+        if (presentation.motion() && ambient.effect() != AmbientEffect.NONE) {
+            ambient.effect().frame(menu.grid(), freeSlots, age, ambient.speed())
+                    .forEach((slot, look) -> view.put(slot, shared(look)));
+        }
         for (RunningEffect effect : effects) {
-            effect.frames.get(effect.frame)
-                    .forEach((slot, look) -> view.put(slot, look == Look.HIDDEN ? filler : effect.looks.get(look)));
+            effect.frames.get(effect.frame).forEach((slot, look) -> {
+                ItemStack own = effect.looks.get(look);
+                view.put(slot, own != null ? own : shared(look));
+            });
         }
         return view;
     }
 
+    private ItemStack shared(Look look) {
+        return switch (look) {
+            case ACCENT -> accent;
+            case TRAIL -> trail;
+            default -> filler;
+        };
+    }
+
     private void renderBase() {
-        double phase = phase();
         base.clear();
-        filler = menu.filler() != null ? renderer.render(menu.filler(), viewer, phase) : null;
-        if (filler != null) {
-            freeSlots.forEach(slot -> base.put(slot, filler));
-        }
+        visible.clear();
+        freeSlots.clear();
+        filler = menu.filler() != null ? item(menu.filler()) : null;
+        accent = item(menu.accent());
+        trail = item(menu.trail());
+
+        // Buttons come sorted by priority: the first one whose conditions are met takes the slot.
         for (Button button : menu.buttons()) {
-            ItemStack item = renderer.render(button.icon(), viewer, phase);
-            button.slots().forEach(slot -> base.put(slot, item));
+            List<Integer> slots = button.slots().stream().filter(slot -> !visible.containsKey(slot)).toList();
+            if (slots.isEmpty() || !sessions.requirements().test(button.showIf(), viewer)) {
+                continue;
+            }
+            ItemStack item = item(button.icon());
+            slots.forEach(slot -> {
+                visible.put(slot, button);
+                base.put(slot, item);
+            });
         }
+        for (int slot = 0; slot < menu.grid().size(); slot++) {
+            if (!visible.containsKey(slot)) {
+                freeSlots.add(slot);
+                if (filler != null) {
+                    base.put(slot, filler);
+                }
+            }
+        }
+    }
+
+    // Icons without placeholders or gradients are rendered once: the same ItemStack keeps draw() from resending them.
+    private ItemStack item(Icon icon) {
+        return icon.live() ? sessions.renderer().render(icon, viewer, phase())
+                : still.computeIfAbsent(icon, key -> sessions.renderer().render(key, viewer, 0));
     }
 
     // Compares references, not contents: unchanged slots keep the very same ItemStack, so this is cheap.
@@ -185,6 +281,25 @@ public final class MenuSession implements InventoryHolder {
                 shown[slot] = item;
             }
         }
+    }
+
+    private void schedule(List<SoundCue> cues, boolean partOfOpening) {
+        if (presentation.sound()) {
+            cues.forEach(cue -> sounds.add(new PendingSound(age + cue.tick(), cue, partOfOpening)));
+            playDue();
+        }
+    }
+
+    private void playDue() {
+        float volume = sessions.volume();
+        sounds.removeIf(pending -> {
+            if (pending.at() > age) {
+                return false;
+            }
+            SoundCue cue = pending.cue();
+            viewer.playSound(Sound.sound(cue.sound(), Sound.Source.UI, cue.volume() * volume, cue.pitch()));
+            return true;
+        });
     }
 
     private double phase() {
@@ -200,6 +315,9 @@ public final class MenuSession implements InventoryHolder {
             case SHIFT_RIGHT -> ClickKind.SHIFT_RIGHT;
             default -> ClickKind.ANY;
         };
+    }
+
+    private record PendingSound(long at, SoundCue cue, boolean opening) {
     }
 
     private static final class RunningEffect {

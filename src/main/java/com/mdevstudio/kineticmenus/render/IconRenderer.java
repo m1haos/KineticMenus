@@ -1,5 +1,6 @@
 package com.mdevstudio.kineticmenus.render;
 
+import com.mdevstudio.kineticmenus.hook.PlaceholderBridge;
 import com.mdevstudio.kineticmenus.menu.Icon;
 import java.util.Locale;
 import net.kyori.adventure.text.Component;
@@ -42,11 +43,15 @@ public final class IconRenderer {
     }
 
     public Component text(String text, Player viewer, double phase) {
-        String filled = text.replace("{player}", viewer.getName())
-                .replace("{phase}", String.format(Locale.ROOT, "%.2f", phase));
-        if (placeholders && filled.indexOf('%') >= 0) {
-            filled = PlaceholderBridge.apply(viewer, filled);
-        }
+        String filled = fill(text.replace("{phase}", String.format(Locale.ROOT, "%.2f", phase)), viewer);
         return MINI_MESSAGE.deserialize(filled).decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE);
+    }
+
+    /**
+     * Fills {player} and PlaceholderAPI placeholders, for commands and conditions.
+     */
+    public String fill(String text, Player viewer) {
+        String filled = text.replace("{player}", viewer.getName());
+        return placeholders && filled.indexOf('%') >= 0 ? PlaceholderBridge.apply(viewer, filled) : filled;
     }
 }

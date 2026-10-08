@@ -1,16 +1,23 @@
 package com.mdevstudio.kineticmenus.menu;
 
+import com.mdevstudio.kineticmenus.animation.AmbientEffect;
 import com.mdevstudio.kineticmenus.animation.ClickEffect;
+import com.mdevstudio.kineticmenus.animation.Easing;
 import com.mdevstudio.kineticmenus.animation.Grid;
 import com.mdevstudio.kineticmenus.animation.OpenEffect;
 import com.mdevstudio.kineticmenus.menu.Button.ClickKind;
-import java.io.File;
+import com.mdevstudio.kineticmenus.menu.Button.Reaction;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
@@ -18,8 +25,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.slf4j.Logger;
 
 /**
- * Reads every {@code menus/*.yml}. A mistake in one button is reported with the file and key and the rest
- * of the menu still loads.
+ * Reads every {@code .yml} under the menus folder, subfolders included; the file name is the menu id.
+ * A mistake in one button is reported with the file and key and the rest of the menu still loads.
  */
 public final class MenuLoader {
 
@@ -29,22 +36,37 @@ public final class MenuLoader {
             "on-right-click", ClickKind.RIGHT,
             "on-shift-left-click", ClickKind.SHIFT_LEFT,
             "on-shift-right-click", ClickKind.SHIFT_RIGHT);
+    private static final Icon DEFAULT_ACCENT =
+            new Icon(Material.LIGHT_BLUE_STAINED_GLASS_PANE, 1, null, List.of(), false, null, true);
+    private static final Icon DEFAULT_TRAIL =
+            new Icon(Material.GRAY_STAINED_GLASS_PANE, 1, null, List.of(), false, null, true);
 
     private final Logger logger;
+    private final ScriptParser parser;
 
     public MenuLoader(Logger logger) {
         this.logger = logger;
+        this.parser = new ScriptParser(logger);
     }
 
-    public Map<String, Menu> loadAll(File folder) {
+    public Map<String, Menu> loadAll(Path folder) {
+        List<Path> files;
+        try (Stream<Path> walk = Files.walk(folder)) {
+            files = walk.filter(path -> path.toString().endsWith(".yml")).sorted().toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
         Map<String, Menu> menus = new LinkedHashMap<>();
-        File[] files = folder.listFiles((dir, name) -> name.endsWith(".yml"));
-        for (File file : files != null ? files : new File[0]) {
-            String id = file.getName().substring(0, file.getName().length() - 4).toLowerCase(Locale.ROOT);
-            Menu menu = load(id, YamlConfiguration.loadConfiguration(file), "menus/" + file.getName());
-            if (menu != null) {
-                menus.put(id, menu);
+        for (Path file : files) {
+            String name = file.getFileName().toString();
+            String id = name.substring(0, name.length() - 4).toLowerCase(Locale.ROOT);
+            String shown = "menus/" + folder.relativize(file).toString().replace('\\', '/');
+            if (menus.containsKey(id)) {
+                logger.warn("{}: another file already defines menu '{}', this one is skipped.", shown, id);
+                continue;
             }
+            menus.put(id, load(id, YamlConfiguration.loadConfiguration(file.toFile()), shown));
         }
         return menus;
     }
@@ -68,20 +90,52 @@ public final class MenuLoader {
             }
         }
 
+        List<Condition> openIf = new ArrayList<>(parser.conditions(yaml.getStringList("open-if"), file + ", open-if"));
+        if (yaml.isString("permission")) {
+            openIf.addFirst(new Condition.Permission(yaml.getString("permission")));
+        }
+
         return new Menu(
                 id,
                 yaml.getString("title", id),
                 grid,
-                effect(OpenEffect.class, yaml.getString("open.effect", "none"), OpenEffect.NONE,
-                        file + ", open.effect"),
-                Math.clamp(yaml.getInt("open.ticks", 12), 1, 100),
-                sound(yaml.getString("open.sound"), file + ", open.sound"),
-                yaml.isConfigurationSection("filler") ? icon(yaml.getConfigurationSection("filler"), file + ", filler")
-                        : null,
-                yaml.isConfigurationSection("ripple") ? icon(yaml.getConfigurationSection("ripple"), file + ", ripple")
-                        : new Icon(Material.LIGHT_BLUE_STAINED_GLASS_PANE, 1, null, List.of(), false, null, true),
+                commands(yaml),
+                List.copyOf(openIf),
+                parser.actions(yaml.getStringList("on-deny"), file + ", on-deny"),
+                opening(yaml, file),
+                new Menu.Ambient(
+                        parser.constant(AmbientEffect.class, yaml.getString("ambient.effect", "none"),
+                                AmbientEffect.NONE, file + ", ambient.effect"),
+                        Math.clamp(yaml.getInt("ambient.speed", 2), 1, 40)),
+                optionalIcon(yaml, "filler", file, null),
+                optionalIcon(yaml, "accent", file, DEFAULT_ACCENT),
+                optionalIcon(yaml, "trail", file, DEFAULT_TRAIL),
                 List.copyOf(buttons),
                 Math.clamp(yaml.getInt("refresh", 2), 1, 200));
+    }
+
+    private Menu.Opening opening(ConfigurationSection yaml, String file) {
+        String easing = yaml.getString("open.easing", ScriptParser.AUTO);
+        return new Menu.Opening(
+                parser.constant(OpenEffect.class, yaml.getString("open.effect", "none"), OpenEffect.NONE,
+                        file + ", open.effect"),
+                Math.clamp(yaml.getInt("open.ticks", 16), 1, 100),
+                easing.equalsIgnoreCase(ScriptParser.AUTO) ? null
+                        : parser.constant(Easing.class, easing, null, file + ", open.easing"),
+                parser.sounds(yaml.get("open.sound"), file + ", open.sound"));
+    }
+
+    private static List<String> commands(ConfigurationSection yaml) {
+        List<String> commands = new ArrayList<>(yaml.getStringList("commands"));
+        if (yaml.isString("command")) {
+            commands.addFirst(yaml.getString("command"));
+        }
+        return commands.stream()
+                .map(command -> command.trim().toLowerCase(Locale.ROOT))
+                .map(command -> command.startsWith("/") ? command.substring(1) : command)
+                .filter(command -> !command.isEmpty())
+                .distinct()
+                .toList();
     }
 
     private Button button(String id, ConfigurationSection yaml, Grid grid, String where) {
@@ -99,23 +153,40 @@ public final class MenuLoader {
         Map<ClickKind, List<Action>> actions = new EnumMap<>(ClickKind.class);
         CLICK_KEYS.forEach((key, kind) -> {
             if (yaml.contains(key)) {
-                actions.put(kind, actions(yaml.getStringList(key), where + "." + key));
+                actions.put(kind, parser.actions(yaml.getStringList(key), where + "." + key));
             }
         });
+
+        List<Condition> clickIf = new ArrayList<>(parser.conditions(yaml.getStringList("click-if"),
+                where + ".click-if"));
+        if (yaml.isString("permission")) {
+            clickIf.addFirst(new Condition.Permission(yaml.getString("permission")));
+        }
 
         return new Button(
                 id,
                 slots,
+                yaml.getInt("priority", 0),
                 icon,
                 yaml.isConfigurationSection("pressed")
                         ? icon(yaml.getConfigurationSection("pressed"), where + ".pressed")
                         : icon.withGlint(),
-                effect(ClickEffect.class, yaml.getString("effect", "press"), ClickEffect.PRESS, where + ".effect"),
+                parser.conditions(yaml.getStringList("show-if"), where + ".show-if"),
+                List.copyOf(clickIf),
+                parser.constant(ClickEffect.class, yaml.getString("effect", "press"), ClickEffect.PRESS,
+                        where + ".effect"),
+                parser.sounds(yaml.get("sound"), where + ".sound"),
                 actions,
-                yaml.getString("permission"),
-                actions(yaml.getStringList("on-deny"), where + ".on-deny"),
-                effect(ClickEffect.class, yaml.getString("deny-effect", "shake"), ClickEffect.SHAKE,
-                        where + ".deny-effect"));
+                new Reaction(
+                        parser.constant(ClickEffect.class, yaml.getString("deny-effect", "shake"), ClickEffect.SHAKE,
+                                where + ".deny-effect"),
+                        parser.sounds(yaml.get("deny-sound"), where + ".deny-sound"),
+                        parser.actions(yaml.getStringList("on-deny"), where + ".on-deny")));
+    }
+
+    private Icon optionalIcon(ConfigurationSection yaml, String key, String file, Icon fallback) {
+        return yaml.isConfigurationSection(key) ? icon(yaml.getConfigurationSection(key), file + ", " + key)
+                : fallback;
     }
 
     private Icon icon(ConfigurationSection yaml, String where) {
@@ -174,76 +245,10 @@ public final class MenuLoader {
             }
         }
         List<Integer> inside = slots.stream().filter(slot -> slot >= 0 && slot < grid.size()).distinct().toList();
-        if (inside.size() < slots.size()) {
+        if (slots.stream().anyMatch(slot -> slot < 0 || slot >= grid.size())) {
             logger.warn("{}: some slots are outside a {}-row menu (0-{}), they are ignored.", where, grid.rows(),
                     grid.size() - 1);
         }
         return inside;
-    }
-
-    private List<Action> actions(List<String> lines, String where) {
-        List<Action> actions = new ArrayList<>();
-        for (String line : lines) {
-            Action action = action(line, where);
-            if (action != null) {
-                actions.add(action);
-            }
-        }
-        return List.copyOf(actions);
-    }
-
-    private Action action(String line, String where) {
-        int colon = line.indexOf(':');
-        String type = (colon < 0 ? line : line.substring(0, colon)).trim().toLowerCase(Locale.ROOT);
-        String argument = colon < 0 ? "" : line.substring(colon + 1).trim();
-        String[] words = argument.split("\\s+");
-        return switch (type) {
-            case "message" -> new Action.Message(argument);
-            case "console" -> new Action.ConsoleCommand(argument);
-            case "player" -> new Action.PlayerCommand(argument);
-            case "sound" -> {
-                NamespacedKey key = sound(words[0], where);
-                yield key != null ? new Action.Sound(key, number(words, 1, 1f), number(words, 2, 1f)) : null;
-            }
-            case "open" -> new Action.Open(words[0].toLowerCase(Locale.ROOT), words.length > 1
-                    ? effect(OpenEffect.class, words[1], null, where) : null);
-            case "close" -> new Action.Close();
-            case "refresh" -> new Action.Refresh();
-            default -> {
-                logger.warn("{}: unknown action '{}'. Known: message, console, player, sound, open, close, refresh.",
-                        where, type);
-                yield null;
-            }
-        };
-    }
-
-    private NamespacedKey sound(String name, String where) {
-        if (name == null || name.isBlank()) {
-            return null;
-        }
-        NamespacedKey key = NamespacedKey.fromString(name.trim().toLowerCase(Locale.ROOT));
-        if (key == null) {
-            logger.warn("{}: sound '{}' should look like block.note_block.pling or minecraft:ui.button.click.", where,
-                    name);
-        }
-        return key;
-    }
-
-    private <E extends Enum<E>> E effect(Class<E> type, String name, E fallback, String where) {
-        try {
-            return Enum.valueOf(type, name.trim().toUpperCase(Locale.ROOT).replace('-', '_'));
-        } catch (IllegalArgumentException e) {
-            logger.warn("{}: '{}' is not one of {}.", where, name,
-                    List.of(type.getEnumConstants()).toString().toLowerCase(Locale.ROOT));
-            return fallback;
-        }
-    }
-
-    private static float number(String[] words, int index, float fallback) {
-        try {
-            return words.length > index ? Float.parseFloat(words[index]) : fallback;
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
     }
 }

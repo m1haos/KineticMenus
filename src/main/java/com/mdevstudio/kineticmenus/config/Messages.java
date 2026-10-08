@@ -24,6 +24,13 @@ public final class Messages {
     public static final String LIST = "list";
     public static final String ANIMATIONS_ON = "animations-on";
     public static final String ANIMATIONS_OFF = "animations-off";
+    public static final String SOUNDS_ON = "sounds-on";
+    public static final String SOUNDS_OFF = "sounds-off";
+    public static final String NO_ACCESS = "no-access";
+    public static final String NOT_ENOUGH_MONEY = "not-enough-money";
+    public static final String COMMANDS_NEED_RESTART = "commands-need-restart";
+    public static final String IMPORT_NOT_FOUND = "import-not-found";
+    public static final String IMPORTED = "imported";
 
     static final Set<String> LANGUAGES = Set.of("ru", "en");
 

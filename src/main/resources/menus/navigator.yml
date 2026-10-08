@@ -1,0 +1,63 @@
+# A main menu for your server. The commands below are examples: replace them with your own.
+
+title: "<gradient:#5EE7DF:#B490CA>Navigator"
+rows: 5
+commands: [navigator, nav]
+
+open:
+  effect: wave
+  ticks: 14
+
+ambient:
+  effect: twinkle
+  speed: 2
+
+filler:
+  material: black_stained_glass_pane
+  hide-tooltip: true
+accent:
+  material: cyan_stained_glass_pane
+  hide-tooltip: true
+trail:
+  material: purple_stained_glass_pane
+  hide-tooltip: true
+
+buttons:
+  profile:
+    slot: 4
+    material: player_head
+    name: "<gradient:#5EE7DF:#B490CA:{phase}>{player}"
+    lore: ["<gray>Welcome back!"]
+    effect: sparkle
+
+  spawn:
+    slot: 20
+    material: compass
+    name: "<#5EE7DF>Spawn"
+    lore: ["<gray>Back to the spawn point."]
+    on-click: ["close", "player: spawn"]
+  shop:
+    slot: 22
+    material: emerald
+    name: "<#8BD17C>Shop"
+    lore: ["<gray>Food, materials and tools."]
+    on-click: ["open: shop slide-left"]
+  rules:
+    slot: 24
+    material: book
+    name: "<#B490CA>Rules"
+    lore: ["<gray>Left click: read the rules.", "<gray>Right click: open the website."]
+    on-left-click: ["close", "player: rules"]
+    on-right-click: ["message: <gray>Our website: <#7FB3FF><u><click:open_url:'https://example.com'>example.com"]
+    effect: ripple
+
+  showcase:
+    slot: 36
+    material: nether_star
+    name: "<gray>« Effects showcase"
+    on-click: ["open: showcase slide-right"]
+  close:
+    slot: 40
+    material: barrier
+    name: "<#FF6B6B>Close"
+    on-click: ["close"]

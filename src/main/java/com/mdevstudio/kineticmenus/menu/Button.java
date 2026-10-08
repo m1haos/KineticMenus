@@ -1,15 +1,19 @@
 package com.mdevstudio.kineticmenus.menu;
 
 import com.mdevstudio.kineticmenus.animation.ClickEffect;
+import com.mdevstudio.kineticmenus.animation.SoundCue;
 import java.util.List;
 import java.util.Map;
 
 /**
- * @param permission needed to use the button, or {@code null} for everyone
+ * @param priority when several buttons share a slot, the lowest number among those whose {@code showIf} is met
+ *                 is shown
+ * @param sound sounds of the click, {@code null} for the effect's own, empty for silence
+ * @param deny what happens when {@code clickIf} is not met or the player cannot pay
  */
-public record Button(String id, List<Integer> slots, Icon icon, Icon pressed, ClickEffect effect,
-                     Map<ClickKind, List<Action>> actions, String permission, List<Action> denyActions,
-                     ClickEffect denyEffect) {
+public record Button(String id, List<Integer> slots, int priority, Icon icon, Icon pressed,
+                     List<Condition> showIf, List<Condition> clickIf, ClickEffect effect, List<SoundCue> sound,
+                     Map<ClickKind, List<Action>> actions, Reaction deny) {
 
     public enum ClickKind {
         ANY,
@@ -17,6 +21,12 @@ public record Button(String id, List<Integer> slots, Icon icon, Icon pressed, Cl
         RIGHT,
         SHIFT_LEFT,
         SHIFT_RIGHT
+    }
+
+    /**
+     * @param sound {@code null} for the effect's own sounds, empty for silence
+     */
+    public record Reaction(ClickEffect effect, List<SoundCue> sound, List<Action> actions) {
     }
 
     public List<Action> actionsFor(ClickKind kind) {

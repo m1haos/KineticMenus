@@ -1,0 +1,67 @@
+# Second page of the shop, reached with a slide from the first one.
+
+title: "<gradient:#F2C14E:#FF6B6B>Shop</gradient> <dark_gray>» tools"
+rows: 5
+
+open:
+  effect: cascade
+
+ambient:
+  effect: pulse
+  speed: 3
+
+filler:
+  material: black_stained_glass_pane
+  hide-tooltip: true
+accent:
+  material: orange_stained_glass_pane
+  hide-tooltip: true
+trail:
+  material: red_stained_glass_pane
+  hide-tooltip: true
+
+buttons:
+  pickaxe:
+    slot: 20
+    material: diamond_pickaxe
+    name: "<#7FB3FF>Diamond pickaxe"
+    lore: ["<gray>Price: <gold>500"]
+    click-if: ["money: 500"]
+    on-click:
+      - "take-money: 500"
+      - "console: give {player} minecraft:diamond_pickaxe"
+    effect: sparkle
+    on-deny: ["message: <#FF6B6B>You need <gold>500</gold> for that."]
+  axe:
+    slot: 22
+    material: diamond_axe
+    name: "<#7FB3FF>Diamond axe"
+    lore: ["<gray>Price: <gold>450"]
+    click-if: ["money: 450"]
+    on-click:
+      - "take-money: 450"
+      - "console: give {player} minecraft:diamond_axe"
+    effect: sparkle
+    on-deny: ["message: <#FF6B6B>You need <gold>450</gold> for that."]
+  shovel:
+    slot: 24
+    material: diamond_shovel
+    name: "<#7FB3FF>Diamond shovel"
+    lore: ["<gray>Price: <gold>300"]
+    click-if: ["money: 300"]
+    on-click:
+      - "take-money: 300"
+      - "console: give {player} minecraft:diamond_shovel"
+    effect: sparkle
+    on-deny: ["message: <#FF6B6B>You need <gold>300</gold> for that."]
+
+  back:
+    slot: 36
+    material: arrow
+    name: "<gray>« Shop"
+    on-click: ["open: shop slide-right"]
+  close:
+    slot: 40
+    material: barrier
+    name: "<#FF6B6B>Close"
+    on-click: ["close"]

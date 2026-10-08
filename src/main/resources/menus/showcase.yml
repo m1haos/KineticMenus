@@ -1,26 +1,41 @@
-# Showcase of every effect. Open it with /kmenu open showcase.
-# Each menu file in this folder is one menu; the file name is its id.
+# Showcase of every effect. Open it with /kmenu open showcase or /showcase.
+# Each file in this folder is one menu; the file name is its id. Subfolders are fine.
+# Saving a file applies it at once, open menus included (auto-reload in config.yml).
 
 title: "<gradient:#7FB3FF:#C38BFF>KineticMenus</gradient> <dark_gray>showcase"
-rows: 5
+rows: 6
+commands: [showcase]
 
-# How the menu appears: none, cascade, wave, spiral, typewriter, scatter, shuffle.
 open:
+  # none, cascade, wave, spiral, typewriter, scatter, shuffle, fall, burst,
+  # slide-left, slide-right, slide-up, slide-down
   effect: scatter
-  ticks: 14
-  sound: block.amethyst_block.chime
+  # Length of the animation in ticks (20 ticks = 1 second).
+  ticks: 16
+  # Speed curve: auto (the one that suits the effect), linear, ease-in, ease-out, ease-in-out.
+  easing: auto
+  # auto plays the sounds made for the effect, none is silence, or your own: "sound volume pitch delay".
+  sound: auto
 
-# Ticks between redraws of animated gradients ({phase}) and placeholders.
+# Background motion on empty slots: none, chase, twinkle, pulse. Speed is ticks per step.
+ambient:
+  effect: chase
+  speed: 2
+
+# Ticks between redraws of animated gradients ({phase}), placeholders and show-if conditions.
 refresh: 2
 
 # Slots without a button.
 filler:
   material: black_stained_glass_pane
   hide-tooltip: true
-
-# What a ripple paints over empty slots.
-ripple:
+# Bright colour of effects: ripple fronts, sparks, border lights, the edge of an opening.
+accent:
   material: light_blue_stained_glass_pane
+  hide-tooltip: true
+# Faint colour effects leave behind.
+trail:
+  material: gray_stained_glass_pane
   hide-tooltip: true
 
 buttons:
@@ -29,15 +44,15 @@ buttons:
     material: nether_star
     name: "<gradient:#5EE7DF:#B490CA:#5EE7DF:{phase}><bold>KineticMenus"
     lore:
-      - "<gray>Top row: opening effects."
-      - "<gray>Bottom row: click effects."
+      - "<gray>Rows two and three: opening effects."
+      - "<gray>Row four: click effects."
     effect: flash
 
   cascade:
     slot: 10
     material: water_bucket
     name: "<#7FB3FF>Cascade"
-    lore: ["<gray>Row by row, top to bottom."]
+    lore: ["<gray>Row by row, to falling chimes."]
     on-click: ["open: showcase cascade"]
   wave:
     slot: 11
@@ -55,22 +70,40 @@ buttons:
     slot: 13
     material: writable_book
     name: "<#7FB3FF>Typewriter"
-    lore: ["<gray>Slot after slot."]
+    lore: ["<gray>Slot after slot, with a bell at the end."]
     on-click: ["open: showcase typewriter"]
   scatter:
     slot: 14
     material: firework_rocket
     name: "<#7FB3FF>Scatter"
-    lore: ["<gray>Items fly in from random slots."]
+    lore: ["<gray>Buttons fly in from random slots."]
     on-click: ["open: showcase scatter"]
   shuffle:
     slot: 15
     material: music_disc_otherside
     name: "<#7FB3FF>Shuffle"
-    lore: ["<gray>Slots flicker, then settle."]
+    lore: ["<gray>A slot machine that stops column by column."]
     on-click: ["open: showcase shuffle"]
-  instant:
+  fall:
     slot: 16
+    material: anvil
+    name: "<#7FB3FF>Fall"
+    lore: ["<gray>Buttons drop in from above."]
+    on-click: ["open: showcase fall"]
+  burst:
+    slot: 20
+    material: wind_charge
+    name: "<#7FB3FF>Burst"
+    lore: ["<gray>Everything flies out of the middle."]
+    on-click: ["open: showcase burst"]
+  slide:
+    slot: 22
+    material: map
+    name: "<#7FB3FF>Slide"
+    lore: ["<gray>A page turn to another menu.", "<gray>Try the shop there as well."]
+    on-click: ["open: navigator slide-left"]
+  instant:
+    slot: 24
     material: clock
     name: "<#7FB3FF>No animation"
     lore: ["<gray>What players with animations off see."]
@@ -80,43 +113,45 @@ buttons:
     slot: 28
     material: stone_button
     name: "<#8BD17C>Press"
-    lore: ["<gray>The button sinks in."]
+    lore: ["<gray>The button sinks in and springs back."]
     effect: press
-    on-click: ["sound: ui.button.click 0.6 1.2"]
   flash:
     slot: 29
     material: glowstone_dust
     name: "<#8BD17C>Flash"
     lore: ["<gray>Two blinks of glint."]
     effect: flash
-    on-click: ["sound: block.amethyst_block.hit 0.8 1.4"]
   ripple:
-    slot: 31
+    slot: 30
     material: prismarine_crystals
     name: "<#8BD17C>Ripple"
     lore: ["<gray>A ring spreads over the empty slots."]
     effect: ripple
-    on-click: ["sound: block.bubble_column.upwards_inside 0.8 1.2"]
+  sparkle:
+    slot: 32
+    material: emerald
+    name: "<#8BD17C>Sparkle"
+    lore: ["<gray>For purchases and rewards."]
+    effect: sparkle
   shake:
     slot: 33
     material: tnt
     name: "<#F2C14E>Shake"
     lore: ["<gray>Needs a permission nobody has,", "<gray>so the button refuses."]
-    permission: kineticmenus.showcase.never
+    click-if: ["permission: kineticmenus.showcase.never"]
     deny-effect: shake
-    on-deny:
-      - "sound: entity.villager.no 0.8 1"
-      - "message: <#F2C14E>That button shakes its head at you."
+    on-deny: ["message: <#F2C14E>That button shakes its head at you."]
   gradient:
     slot: 34
     material: amethyst_shard
     name: "<gradient:#FF6B6B:#F2C14E:#8BD17C:#7FB3FF:#C38BFF:#FF6B6B:{phase}>Live gradient"
     lore: ["<gray>Colours keep moving while the menu is open."]
     effect: ripple
+    # Your own sound instead of the effect's: key, volume, pitch, delay in ticks.
+    sound: ["block.note_block.chime 0.6 1.2", "block.note_block.chime 0.6 1.6 3"]
 
   close:
-    slot: 40
+    slot: 49
     material: barrier
     name: "<#FF6B6B>Close"
-    effect: press
     on-click: ["close"]

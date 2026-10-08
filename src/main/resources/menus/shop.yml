@@ -1,0 +1,97 @@
+# A two-page shop. Prices need Vault and an economy plugin; the balance line needs PlaceholderAPI
+# with its Vault expansion (/papi ecloud download Vault).
+
+title: "<gradient:#F2C14E:#FF6B6B>Shop"
+rows: 5
+commands: [shop]
+
+open:
+  effect: fall
+  ticks: 16
+
+ambient:
+  effect: pulse
+  speed: 3
+
+filler:
+  material: black_stained_glass_pane
+  hide-tooltip: true
+accent:
+  material: orange_stained_glass_pane
+  hide-tooltip: true
+trail:
+  material: red_stained_glass_pane
+  hide-tooltip: true
+
+buttons:
+  balance:
+    slot: 4
+    material: gold_ingot
+    name: "<gradient:#F2C14E:#FF6B6B:#F2C14E:{phase}>Your balance"
+    lore: ["<gold>%vault_eco_balance_formatted%"]
+    effect: flash
+
+  bread:
+    slot: 20
+    material: bread
+    amount: 16
+    name: "<#F2C14E>Bread ×16"
+    lore: ["<gray>Price: <gold>20"]
+    click-if: ["money: 20"]
+    on-click:
+      - "take-money: 20"
+      - "console: give {player} minecraft:bread 16"
+      - "message: <#8BD17C>Bought 16 bread."
+    effect: sparkle
+    on-deny: ["message: <#FF6B6B>You need <gold>20</gold> for that."]
+  iron:
+    slot: 22
+    material: iron_ingot
+    amount: 8
+    name: "<#F2C14E>Iron ingots ×8"
+    lore: ["<gray>Price: <gold>100"]
+    click-if: ["money: 100"]
+    on-click:
+      - "take-money: 100"
+      - "console: give {player} minecraft:iron_ingot 8"
+      - "message: <#8BD17C>Bought 8 iron ingots."
+    effect: sparkle
+    on-deny: ["message: <#FF6B6B>You need <gold>100</gold> for that."]
+
+  # Two buttons share slot 24: VIP players see the first one, everyone else the second.
+  vip-crate:
+    slot: 24
+    priority: 1
+    show-if: ["permission: shop.vip"]
+    material: ender_chest
+    name: "<gradient:#C38BFF:#7FB3FF>VIP crate"
+    lore: ["<gray>Price: <gold>250"]
+    click-if: ["money: 250"]
+    on-click:
+      - "take-money: 250"
+      - "console: give {player} minecraft:diamond 2"
+      - "message: <#8BD17C>The crate had 2 diamonds in it."
+    effect: sparkle
+  vip-locked:
+    slot: 24
+    priority: 2
+    material: chest
+    name: "<dark_gray>VIP crate"
+    lore: ["<gray>Only for VIP players."]
+    click-if: ["permission: shop.vip"]
+
+  tools:
+    slot: 26
+    material: iron_pickaxe
+    name: "<#7FB3FF>Tools »"
+    on-click: ["open: shop-tools slide-left"]
+  back:
+    slot: 36
+    material: arrow
+    name: "<gray>« Navigator"
+    on-click: ["open: navigator slide-right"]
+  close:
+    slot: 40
+    material: barrier
+    name: "<#FF6B6B>Close"
+    on-click: ["close"]
