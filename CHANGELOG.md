@@ -19,7 +19,9 @@
 
 ### Changed
 
-- Smoother animations: easing curves (`open.easing`), sparks ahead of revealed slots, trails behind moving buttons, staggered flights, slot-machine `shuffle`, two-tick holds in `flash` and `shake`
+- Smoother animations: something changes on screen every tick or every other tick. Sparks ahead of revealed slots, trails behind moving buttons, staggered flights, a slanted `cascade`, slides that move one column per tick, slot-machine `shuffle`, two-tick holds in `flash` and `shake`
+- Buttons that only travel a short way arrive sooner instead of crawling, so `scatter`, `fall` and `burst` may end before `open.ticks`
+- Optional speed curve `open.easing` (even speed by default)
 - Default opening length is 16 ticks instead of 12
 - `ripple` menu key is now `accent`, with a new `trail` key for faint colours
 - `permission` on a button is a shortcut for a `click-if` permission

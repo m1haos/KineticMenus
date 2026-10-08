@@ -13,42 +13,42 @@ import java.util.random.RandomGenerator;
  */
 public enum OpenEffect {
 
-    NONE(Easing.LINEAR),
-    /** Row by row, top to bottom. */
-    CASCADE(Easing.EASE_IN_OUT),
+    NONE,
+    /** Row by row, top to bottom, each row sweeping in from the left. */
+    CASCADE,
     /** Rings spreading from the middle of the menu. */
-    WAVE(Easing.EASE_OUT),
+    WAVE,
     /** Along the border inwards, like a snail shell. */
-    SPIRAL(Easing.EASE_IN_OUT),
+    SPIRAL,
     /** One slot after another in reading order, with a bell at the end of the line. */
-    TYPEWRITER(Easing.LINEAR),
+    TYPEWRITER,
     /** Buttons start in random slots and travel to their own. */
-    SCATTER(Easing.EASE_IN_OUT),
+    SCATTER,
     /** Buttons spin through the menu's items and stop column by column, like a slot machine. */
-    SHUFFLE(Easing.EASE_IN),
+    SHUFFLE,
     /** Buttons drop in from above, column after column. */
-    FALL(Easing.EASE_IN),
+    FALL,
     /** Buttons fly out of the middle to their places. */
-    BURST(Easing.EASE_OUT),
+    BURST,
     /** The previous menu moves out to the left and this one follows from the right. */
-    SLIDE_LEFT(Easing.EASE_IN_OUT),
-    SLIDE_RIGHT(Easing.EASE_IN_OUT),
-    SLIDE_UP(Easing.EASE_IN_OUT),
-    SLIDE_DOWN(Easing.EASE_IN_OUT);
+    SLIDE_LEFT,
+    SLIDE_RIGHT,
+    SLIDE_UP,
+    SLIDE_DOWN;
 
     private static final double EPSILON = 1e-9;
-
-    private final Easing easing;
-
-    OpenEffect(Easing easing) {
-        this.easing = easing;
-    }
+    // How far a row's right end lags behind its left end, in rows: enough for a slanted curtain, not a typewriter.
+    private static final double CASCADE_SLANT = 0.08;
+    // A button crossing a short way slowly would stand still between slots, so flights are never slower than this;
+    // the animation then simply ends sooner.
+    private static final int MAX_TICKS_PER_SLOT = 2;
 
     /**
-     * @param curve speed curve, or {@code null} for the one that suits the effect
+     * @param curve speed curve, or {@code null} for an even speed. Curves look best on long movements: on a grid of
+     *              nine columns a slow start or end turns into ticks where nothing moves.
      */
     public <T> Animation<T> animate(Scene<T> scene, int duration, Easing curve, RandomGenerator random) {
-        Easing chosen = curve != null ? curve : easing;
+        Easing chosen = curve != null ? curve : Easing.LINEAR;
         if (this == NONE || duration <= 1 || scene.items().isEmpty() && scene.previous().isEmpty()) {
             return Animation.still(scene.full());
         }
@@ -75,14 +75,15 @@ public enum OpenEffect {
 
     private static <T> Animation<T> cascade(Scene<T> scene, int duration, Easing curve) {
         Grid grid = scene.grid();
+        double last = grid.rows() - 1 + CASCADE_SLANT * (Grid.COLUMNS - 1);
         List<SoundCue> sounds = new ArrayList<>();
         for (int row = 0; row < grid.rows(); row++) {
-            double position = grid.rows() == 1 ? 0 : row / (double) (grid.rows() - 1);
             // Falling chimes: every row a little lower than the one above.
-            sounds.add(SoundCue.at(firstTick(position, duration, curve), "block.note_block.chime", 0.35,
+            sounds.add(SoundCue.at(firstTick(row / last, duration, curve), "block.note_block.chime", 0.35,
                     1.6 - 0.12 * row));
         }
-        return new Animation<>(reveal(scene, duration, curve, grid::row), sounds);
+        return new Animation<>(reveal(scene, duration, curve,
+                slot -> grid.row(slot) + CASCADE_SLANT * grid.column(slot)), sounds);
     }
 
     private static <T> Animation<T> spiral(Scene<T> scene, int duration, Easing curve) {
@@ -146,56 +147,90 @@ public enum OpenEffect {
 
     private static <T> Animation<T> scatter(Scene<T> scene, int duration, Easing curve, RandomGenerator random) {
         Grid grid = scene.grid();
-        // Small random delays keep the items from moving as one block.
-        int maxDelay = duration / 4;
+        // Random departures keep the items from moving as one block and keep something in motion every tick.
+        int maxDelay = duration / 3;
+        Map<Integer, Integer> delays = new HashMap<>();
+        scene.items().keySet().forEach(slot -> delays.put(slot, random.nextInt(maxDelay + 1)));
+        // The first button always sets off at once.
+        int earliest = delays.values().stream().mapToInt(Integer::intValue).min().orElse(0);
         Map<Integer, Flight> flights = new HashMap<>();
         scene.items().keySet().forEach(slot -> {
             int start = random.nextInt(grid.size());
-            flights.put(slot, new Flight(grid.row(start), grid.column(start), random.nextInt(maxDelay + 1)));
+            int delay = delays.get(slot) - earliest;
+            flights.put(slot, flight(grid, slot, grid.row(start), grid.column(start), delay, duration - 1 - delay));
         });
-        return new Animation<>(travel(scene, duration, curve, flights, duration - 1 - maxDelay), List.of(
+        List<Map<Integer, T>> frames = travel(scene, duration, curve, flights);
+        return new Animation<>(frames, List.of(
                 SoundCue.at(0, "entity.illusioner.mirror_move", 0.6, 1.3),
-                SoundCue.at(duration - 1, "block.amethyst_cluster.place", 0.9, 1.2)));
+                SoundCue.at(frames.size() - 1, "block.amethyst_cluster.place", 0.9, 1.2)));
     }
 
     private static <T> Animation<T> fall(Scene<T> scene, int duration, Easing curve) {
         Grid grid = scene.grid();
         int stagger = duration / 3;
-        int length = duration - 1 - stagger;
+        // Everything drops from just above the menu at the same speed, so lower buttons land later; the speed is
+        // chosen so that the last button lands on the last tick.
+        double slowest = scene.items().keySet().stream().mapToDouble(slot -> (grid.row(slot) + 1)
+                / (double) (duration - 1 - grid.column(slot) * stagger / (Grid.COLUMNS - 1))).max().orElse(1);
+        double ticksPerRow = 1 / slowest;
         Map<Integer, Flight> flights = new HashMap<>();
-        scene.items().keySet().forEach(slot -> flights.put(slot, new Flight(grid.row(slot) - grid.rows(),
-                grid.column(slot), grid.column(slot) * stagger / (Grid.COLUMNS - 1))));
+        scene.items().keySet().forEach(slot -> flights.put(slot, flight(grid, slot, -1, grid.column(slot),
+                grid.column(slot) * stagger / (Grid.COLUMNS - 1),
+                (int) Math.round((grid.row(slot) + 1) * ticksPerRow))));
 
+        Map<Integer, Integer> landings = new HashMap<>();
+        flights.forEach((slot, flight) -> landings.merge(grid.column(slot), flight.delay() + flight.length(),
+                Math::max));
         List<SoundCue> sounds = new ArrayList<>();
-        // A soft knock for every column as it lands.
-        flights.values().stream().mapToInt(Flight::delay).distinct().sorted().forEach(delay ->
-                sounds.add(SoundCue.at(delay + length, "block.chiseled_bookshelf.insert", 0.4, 0.9 + 0.05 * delay)));
-        return new Animation<>(travel(scene, duration, curve, flights, length), sounds);
+        // A soft knock for every column as its last button lands.
+        List<Map<Integer, T>> frames = travel(scene, duration, curve, flights);
+        landings.forEach((column, tick) -> sounds.add(SoundCue.at(Math.min(tick, frames.size() - 1),
+                "block.chiseled_bookshelf.insert", 0.4, 0.9 + 0.05 * column)));
+        return new Animation<>(frames, sounds);
     }
 
     private static <T> Animation<T> burst(Scene<T> scene, int duration, Easing curve) {
         Grid grid = scene.grid();
+        int centerRow = (int) Math.round(grid.centerRow());
+        int centerColumn = (int) Math.round(grid.centerColumn());
+        double farthest = scene.items().keySet().stream().mapToDouble(slot -> distance(grid, slot, centerRow,
+                centerColumn)).max().orElse(1);
+        // Buttons fly at one speed, so the near ones settle first and the far ones keep the motion going.
         Map<Integer, Flight> flights = new HashMap<>();
-        scene.items().keySet().forEach(slot -> flights.put(slot,
-                new Flight(Math.round(grid.centerRow()), Math.round(grid.centerColumn()), 0)));
-        return new Animation<>(travel(scene, duration, curve, flights, duration - 1), List.of(
+        scene.items().keySet().forEach(slot -> flights.put(slot, flight(grid, slot, centerRow, centerColumn, 0,
+                (int) Math.round((duration - 1) * distance(grid, slot, centerRow, centerColumn)
+                        / Math.max(1, farthest)))));
+        List<Map<Integer, T>> frames = travel(scene, duration, curve, flights);
+        return new Animation<>(frames, List.of(
                 SoundCue.at(0, "entity.wind_charge.wind_burst", 0.4, 1.5),
-                SoundCue.at(duration - 1, "block.amethyst_block.chime", 0.8, 1.4)));
+                SoundCue.at(frames.size() - 1, "block.amethyst_block.chime", 0.8, 1.4)));
     }
 
-    // Moves every item from its own starting point to its slot over the background; each flight takes `length`
-    // ticks after its delay.
+    private static double distance(Grid grid, int slot, double row, double column) {
+        return Math.max(Math.abs(grid.row(slot) - row), Math.abs(grid.column(slot) - column));
+    }
+
+    private static Flight flight(Grid grid, int target, double row, double column, int delay, int length) {
+        int fastest = (int) Math.ceil(distance(grid, target, row, column) * MAX_TICKS_PER_SLOT);
+        return new Flight(row, column, delay, Math.max(1, Math.min(length, fastest)));
+    }
+
+    // Moves every item from its own starting point to its slot over the background.
     private static <T> List<Map<Integer, T>> travel(Scene<T> scene, int duration, Easing curve,
-                                                   Map<Integer, Flight> flights, int length) {
+                                                   Map<Integer, Flight> flights) {
         Grid grid = scene.grid();
-        List<Map<Integer, T>> frames = new ArrayList<>(duration);
+        int last = Math.min(duration - 1, flights.values().stream()
+                .mapToInt(flight -> flight.delay() + flight.length()).max().orElse(0));
+        List<Map<Integer, T>> frames = new ArrayList<>(last + 1);
         Map<Integer, Integer> previous = Map.of();
-        for (int tick = 0; tick < duration; tick++) {
+        for (int tick = 0; tick <= last; tick++) {
             Map<Integer, Integer> positions = new HashMap<>();
             for (Map.Entry<Integer, Flight> entry : flights.entrySet()) {
                 int target = entry.getKey();
                 Flight flight = entry.getValue();
-                double progress = length <= 0 ? 1 : curve.apply((tick - flight.delay()) / (double) length);
+                // Counting from the first tick of the flight makes a button move as soon as it sets off.
+                double progress = tick == last ? 1
+                        : curve.apply((tick - flight.delay() + 1) / (double) (flight.length() + 1));
                 int row = (int) Math.round(lerp(flight.row(), grid.row(target), progress));
                 int column = (int) Math.round(lerp(flight.column(), grid.column(target), progress));
                 if (grid.contains(row, column)) {
@@ -204,7 +239,7 @@ public enum OpenEffect {
             }
 
             Map<Integer, T> frame = new HashMap<>(scene.background());
-            if (scene.trail() != null) {
+            if (scene.trail() != null && tick < last) {
                 previous.forEach((target, slot) -> {
                     if (!slot.equals(positions.get(target))) {
                         frame.put(slot, scene.trail());
@@ -222,18 +257,20 @@ public enum OpenEffect {
         Grid grid = scene.grid();
         List<T> values = new ArrayList<>(scene.items().values());
         // The reels start stopping after the first third and the last one stops on the final frame.
+        // Only columns with buttons stop, so the pauses between stops stay short in sparse menus.
         int start = duration / 3;
+        List<Integer> columns = scene.items().keySet().stream().map(grid::column).distinct().sorted().toList();
         int[] stops = new int[Grid.COLUMNS];
-        for (int column = 0; column < Grid.COLUMNS; column++) {
-            stops[column] = start + (int) Math.round((duration - 1 - start)
-                    * curve.apply((column + 1) / (double) Grid.COLUMNS));
+        for (int index = 0; index < columns.size(); index++) {
+            stops[columns.get(index)] = start + (int) Math.round((duration - 1 - start)
+                    * curve.apply((index + 1) / (double) columns.size()));
         }
 
         Map<Integer, T> spinning = new HashMap<>();
         List<Map<Integer, T>> frames = new ArrayList<>(duration);
         for (int tick = 0; tick < duration; tick++) {
-            // Spinning slows down: a new item every tick at first, every third tick near the end.
-            boolean turn = tick % (1 + 2 * tick / duration) == 0;
+            // Spinning slows down: a new item every tick at first, every other tick near the end.
+            boolean turn = 2 * tick < duration || tick % 2 == 0;
             Map<Integer, T> frame = new HashMap<>(scene.background());
             for (Map.Entry<Integer, T> entry : scene.items().entrySet()) {
                 int slot = entry.getKey();
@@ -260,11 +297,14 @@ public enum OpenEffect {
     private static <T> Animation<T> slide(Scene<T> scene, int duration, Easing curve, int rowStep, int columnStep) {
         Grid grid = scene.grid();
         int distance = columnStep != 0 ? Grid.COLUMNS : grid.rows();
+        // One column or row per tick whatever the menu's ticks say: a chest has only nine columns, and a slower
+        // slide could only stand still between them.
+        int length = Math.max(2, distance);
         Map<Integer, T> incoming = scene.full();
 
-        List<Map<Integer, T>> frames = new ArrayList<>(duration);
-        for (int tick = 0; tick < duration; tick++) {
-            int shift = (int) Math.round(curve.apply((tick + 1) / (double) duration) * distance);
+        List<Map<Integer, T>> frames = new ArrayList<>(length);
+        for (int tick = 0; tick < length; tick++) {
+            int shift = (int) Math.round(curve.apply((tick + 1) / (double) length) * distance);
             Map<Integer, T> frame = new HashMap<>();
             place(frame, grid, scene.previous(), rowStep * shift, columnStep * shift);
             place(frame, grid, incoming, rowStep * (shift - distance), columnStep * (shift - distance));
@@ -296,7 +336,7 @@ public enum OpenEffect {
         return from + (to - from) * progress;
     }
 
-    // Where an item starts, possibly outside the menu, and how many ticks it waits before moving.
-    private record Flight(double row, double column, int delay) {
+    // Where an item starts, possibly outside the menu, how many ticks it waits and how many it travels.
+    private record Flight(double row, double column, int delay, int length) {
     }
 }

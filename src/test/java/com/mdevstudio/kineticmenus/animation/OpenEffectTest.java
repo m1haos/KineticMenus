@@ -45,13 +45,33 @@ class OpenEffectTest {
     }
 
     @ParameterizedTest
+    @EnumSource(value = OpenEffect.class, names = {"CASCADE", "WAVE", "SPIRAL", "TYPEWRITER", "SHUFFLE"})
+    void revealsLastTheRequestedNumberOfTicks(OpenEffect effect) {
+        assertEquals(16, animate(effect, 16).frames().size());
+    }
+
+    // Short flights end early instead of crawling: the ticks are an upper limit for buttons that travel.
+    @ParameterizedTest
+    @EnumSource(value = OpenEffect.class, names = {"SCATTER", "FALL", "BURST"})
+    void flightsTakeAtMostTheRequestedNumberOfTicks(OpenEffect effect) {
+        int frames = animate(effect, 16).frames().size();
+        assertTrue(frames > 1 && frames <= 16, effect + " took " + frames);
+    }
+
+    @Test
+    void slidesMoveOneColumnOrRowPerTick() {
+        assertEquals(Grid.COLUMNS, animate(OpenEffect.SLIDE_LEFT, 16).frames().size());
+        assertEquals(GRID.rows(), animate(OpenEffect.SLIDE_DOWN, 16).frames().size());
+    }
+
+    @ParameterizedTest
     @EnumSource(value = OpenEffect.class, names = "NONE", mode = EnumSource.Mode.EXCLUDE)
-    void effectsLastTheRequestedNumberOfTicksAndSoundInsideThem(OpenEffect effect) {
+    void soundsPlayWhileTheEffectRuns(OpenEffect effect) {
         Animation<String> animation = animate(effect, 16);
 
-        assertEquals(16, animation.frames().size());
         assertFalse(animation.sounds().isEmpty());
-        assertTrue(animation.sounds().stream().allMatch(cue -> cue.tick() >= 0 && cue.tick() < 16));
+        assertTrue(animation.sounds().stream().allMatch(cue -> cue.tick() >= 0
+                && cue.tick() < animation.frames().size()));
     }
 
     @ParameterizedTest
@@ -62,13 +82,35 @@ class OpenEffectTest {
         }
     }
 
+    // Ticks in a row with nothing changing on screen read as a stall, not as smooth motion. Effects with random
+    // paths may rarely pause for up to three ticks, when two buttons cross the same slot.
+    @ParameterizedTest
+    @EnumSource(value = OpenEffect.class, names = "NONE", mode = EnumSource.Mode.EXCLUDE)
+    void effectsNeverStall(OpenEffect effect) {
+        boolean random = effect == OpenEffect.SCATTER || effect == OpenEffect.SHUFFLE;
+        Map<Integer, String> previous = new HashMap<>();
+        for (int slot = 0; slot < GRID.size(); slot++) {
+            previous.put(slot, "old" + slot);
+        }
+        for (int seed = 0; seed < (random ? 20 : 1); seed++) {
+            List<Map<Integer, String>> frames = effect.animate(new Scene<>(GRID, BUTTONS, background(), previous,
+                    "spark", "trail"), 16, null, new Random(seed)).frames();
+            int still = 0;
+            for (int tick = 1; tick < frames.size(); tick++) {
+                still = frames.get(tick).equals(frames.get(tick - 1)) ? still + 1 : 0;
+                assertTrue(still < (random ? 4 : 2), effect + " stands still at tick " + tick + ", seed " + seed);
+            }
+        }
+    }
+
     @Test
     void cascadeShowsTheTopRowFirstAndTheBottomRowLast() {
         List<Map<Integer, String>> frames = OpenEffect.CASCADE.animate(scene(null, null), 9, null, new Random(1))
                 .frames();
 
         assertTrue(frames.getFirst().keySet().stream().allMatch(slot -> GRID.row(slot) == 0));
-        assertTrue(frames.get(frames.size() - 2).keySet().stream().noneMatch(slot -> GRID.row(slot) == 4));
+        assertTrue(frames.get(frames.size() - 2).keySet().stream().filter(slot -> GRID.row(slot) == 4).count()
+                < Grid.COLUMNS);
     }
 
     @Test

@@ -81,11 +81,13 @@ class KineticMenusTest {
     }
 
     @Test
-    void cascadeStartsWithTheTopRowOnly() {
+    void cascadeStartsAtTheTopLeft() {
         plugin.sessions().open(player, "showcase", OpenEffect.CASCADE);
 
-        assertEquals(Material.NETHER_STAR, top().getItem(LOGO).getType());
+        assertEquals(Material.BLACK_STAINED_GLASS_PANE, top().getItem(0).getType());
         assertNull(top().getItem(CLOSE));
+        server.getScheduler().performTicks(3);
+        assertEquals(Material.NETHER_STAR, top().getItem(LOGO).getType());
     }
 
     @Test
@@ -209,7 +211,8 @@ class KineticMenusTest {
         server.getScheduler().performOneTick();
 
         assertEquals("navigator", session().menu().id());
-        assertEquals(Material.NETHER_STAR, top().getItem(LOGO).getType());
+        // The old logo has moved one column to the left.
+        assertEquals(Material.NETHER_STAR, top().getItem(LOGO - 1).getType());
         server.getScheduler().performTicks(20);
         assertEquals(Material.PLAYER_HEAD, top().getItem(LOGO).getType());
     }

@@ -10,9 +10,10 @@ open:
   # none, cascade, wave, spiral, typewriter, scatter, shuffle, fall, burst,
   # slide-left, slide-right, slide-up, slide-down
   effect: scatter
-  # Length of the animation in ticks (20 ticks = 1 second).
+  # Length of the animation in ticks (20 ticks = 1 second). Slides always move one column per tick,
+  # and buttons that travel only a short way arrive sooner.
   ticks: 16
-  # Speed curve: auto (the one that suits the effect), linear, ease-in, ease-out, ease-in-out.
+  # Speed curve: auto (even speed, the smoothest on a chest grid), ease-in, ease-out, ease-in-out.
   easing: auto
   # auto plays the sounds made for the effect, none is silence, or your own: "sound volume pitch delay".
   sound: auto
@@ -106,8 +107,8 @@ buttons:
     slot: 24
     material: clock
     name: "<#7FB3FF>No animation"
-    lore: ["<gray>What players with animations off see."]
-    on-click: ["open: showcase none"]
+    lore: ["<gray>Opens the navigator instantly:", "<gray>what players with animations off see."]
+    on-click: ["open: navigator none"]
 
   press:
     slot: 28
