@@ -1,42 +1,24 @@
 # Changelog
 
-## [0.2.0] — 2026-10-08
+## [1.0.0] — 2026-10-09
+
+First release.
 
 ### Added
 
-- Opening effects `fall` and `burst`, slide transitions between menus
-- Click effect `sparkle`; background effects `chase`, `twinkle`, `pulse`
-- Sounds for every effect, `sound`, `deny-sound` and `open.sound` to replace or mute them, `/kmenu sounds on|off`, `sounds.volume`
-- Conditions `show-if`, `click-if`, `open-if`: permission, Vault money, placeholder comparisons; button priorities for shared slots
-- Actions `take-money` and `give-money`
+- Menus from YAML files in `menus/` and its subfolders, with MiniMessage texts, animated gradients (`{phase}`) and PlaceholderAPI
+- Opening effects: cascade, wave, spiral, typewriter, scatter, shuffle, fall, burst
+- Slide transitions between menus: slide-left, slide-right, slide-up, slide-down
+- Click effects: press, flash, ripple, sparkle, shake
+- Background effects on empty slots: chase, twinkle, pulse
+- Sounds made for every effect; `open.sound`, `sound` and `deny-sound` to replace or mute them
+- Conditions `open-if`, `show-if`, `click-if`: permission, Vault money, placeholder comparisons, `!` to negate
+- Several buttons per slot, chosen by `priority` and `show-if`
+- Actions: message, console, player, sound, open, close, refresh, take-money, give-money
 - Commands per menu (`commands: [shop]`)
-- Menus reload as soon as a file is saved, open menus are redrawn in place
+- Menu files apply as soon as they are saved; open menus are redrawn in place
 - `/kmenu import deluxemenus`
-- Menus in subfolders of `menus/`
-- Bundled menus `navigator`, `shop`, `shop-tools`
-- Bedrock players get menus without animations (`bedrock-reduced-motion`)
-- Folia support
-
-### Changed
-
-- Smoother animations: something changes on screen every tick or every other tick. Sparks ahead of revealed slots, trails behind moving buttons, staggered flights, a slanted `cascade`, slides that move one column per tick, slot-machine `shuffle`, two-tick holds in `flash` and `shake`
-- Buttons that only travel a short way arrive sooner instead of crawling, so `scatter`, `fall` and `burst` may end before `open.ticks`
-- Optional speed curve `open.easing` (even speed by default)
-- Default opening length is 16 ticks instead of 12
-- `ripple` menu key is now `accent`, with a new `trail` key for faint colours
-- `permission` on a button is a shortcut for a `click-if` permission
-- `/kmenu reload` keeps open menus open
-
-
-## [0.1.0] — 2026-10-07
-
-Prototype.
-
-### Added
-
-- Menus from `menus/*.yml` with buttons, filler, MiniMessage texts and PlaceholderAPI
-- Opening effects: cascade, wave, spiral, typewriter, scatter, shuffle
-- Click effects: press, flash, ripple, shake; permission checks with deny effect and actions
-- Animated gradients with `{phase}`
-- Actions: message, console, player, sound, open (with an effect for the transition), close, refresh
-- `/kmenu open|animations|list|reload`, per-player switch to turn animations off
+- Per-player `/kmenu animations off` and `/kmenu sounds off`; Bedrock players get menus without animations
+- Bundled menus: `showcase`, `navigator`, `shop`, `shop-tools`
+- English and Russian messages
+- Paper and Folia 26.2

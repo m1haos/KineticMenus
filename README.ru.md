@@ -4,8 +4,6 @@
 
 [English version](README.md)
 
-Статус: 0.2.0, предварительная версия перед 1.0.
-
 ## Возможности
 
 - Открытие (`open.effect`): `cascade`, `wave`, `spiral`, `typewriter`, `scatter`, `shuffle`, `fall`, `burst`, `none`.
@@ -25,7 +23,7 @@
 
 ## Файл меню
 
-Пример — в английском README, все ключи с комментариями — в `menus/showcase.yml`.
+Пример — в английском README. Все ключи, эффекты, условия и действия описаны в [руководстве](docs/guide.ru.md).
 
 ## Действия
 

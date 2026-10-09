@@ -4,8 +4,6 @@ Animated chest menus for Paper and Folia 26.2. Menus are YAML files; openings, c
 
 [Русская версия](README.ru.md)
 
-Status: 0.2.0, preview before 1.0.
-
 ## What's in the box
 
 - Openings (`open.effect`): `cascade`, `wave`, `spiral`, `typewriter`, `scatter`, `shuffle`, `fall`, `burst`, `none`.
@@ -54,7 +52,7 @@ buttons:
     on-click: ["open: shop-tools slide-left"]
 ```
 
-`menus/showcase.yml` lists every key with a comment.
+Every key, effect, condition and action is described in the [guide](docs/guide.md).
 
 ## Actions
 
